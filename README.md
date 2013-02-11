@@ -1,4 +1,3 @@
-nodejs-document-filedb
+Introduction
 ======================
-
 NodeJS implementation of Document-based File Database

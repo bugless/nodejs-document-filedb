@@ -1,0 +1,10 @@
+{
+  "name": "node-filedb",
+  "author": "bugless",
+  "description": "NodeJS implementation of Document-based File DB",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "clog": "latest"
+  }
+}
