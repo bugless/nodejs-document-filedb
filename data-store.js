@@ -3,6 +3,7 @@ const DEFAULT_DB_DIR = "/tmp"
     , DEFAULT_SHOULD_PERSIST = true;
 
 var fs      = require('fs')
+  , sugar   = require('sugar')
   , LOG     = require('clog')
   , _cache  = {};
 
@@ -29,10 +30,17 @@ function DataStore(name, options) {
     var _dbDir = options.path || DEFAULT_DB_DIR;
     var _persistenceDelay = options.delay || DEFAULT_PERSISTENCE_DELAY;
     var _shouldPersist = options.persist || DEFAULT_SHOULD_PERSIST;
-
     var _path = _dbDir + '/' + name + '.json';
-    var _store = fs.existsSync(_path) ? require(_path) : {};
 
+    var _store;
+    if (fs.existsSync(_path)) {
+      try { _store = require(_path); } 
+      catch (dbReadError) {
+        LOG.warn("Database (" + name + ") is corrupt. Re-creating it");
+      }
+    }
+
+    _store = Object.extended(_store);
     LOG.info("Creating DataStore '" + name + "' on disk at: " + _path);
 
     /**
@@ -43,18 +51,32 @@ function DataStore(name, options) {
      */
     function _persist(isRecurring) {
       LOG.debug("Saving DataStore " + name + " to disk: " + _path);
-      fs.writeFileSync(_path, JSON.stringify(_store));
-      
-      if (isRecurring) {
-        setTimeout(_persist, _persistenceDelay, isRecurring);
-      }
+      fs.writeFile(_path, JSON.stringify(_store), function(dbWriteError) {
+        if (dbWriteError) {
+          LOG.error("There was an error writing DB to disk: " + _path);
+          return;
+        }
+
+        if (_shouldPersist && isRecurring) {
+          setTimeout(_persist, _persistenceDelay, isRecurring);
+        }
+      }); 
     };
 
     // Persist Database on process exit and at regular intervals
     if (_shouldPersist) {
-      process.on("exit", _persist);
       _persist(true);
     }
+
+    /**
+     * Closes the Database and doesn't persist after invoking
+     * @public
+     * @return {void}
+     */
+    _store.close = function() {
+      LOG.debug("Closing Database (" + name + ")");
+      _shouldPersist = false;
+    };
 
     return _cache[name] = _store;
   }
